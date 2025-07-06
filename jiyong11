@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>마진 계산기 & 매출 달력</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; }
+    header { background: #007bff; color: white; padding: 10px; text-align: center; }
+    nav { display: flex; justify-content: center; background: #f0f0f0; padding: 10px; }
+    nav button { margin: 0 10px; padding: 8px 16px; cursor: pointer; border: none; border-radius: 5px; background: #007bff; color: white; }
+    .content { display: none; padding: 20px; }
+    .active { display: block; }
+    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .day { padding: 10px; border: 1px solid #ccc; min-height: 60px; position: relative; }
+    .day span { font-weight: bold; }
+    .sales-record { font-size: 12px; margin-top: 5px; color: green; }
+    .btn-group { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .btn-group button { flex: 1 1 calc(25% - 10px); background: #007bff; color: white; border: none; cursor: pointer; }
+    .result, .summary { background: #f9f9f9; padding: 15px; border-radius: 5px; line-height: 1.6; }
+    .toggle-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    input, button { padding: 8px; width: 100%; margin-top: 5px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <header><h1>마진 계산기 & 매출 달력</h1></header>
+  <nav>
+    <button onclick="showPage('calculator')">마진 계산기</button>
+    <button onclick="showPage('calendar')">매출 달력</button>
+  </nav>
+
+  <div id="calculator" class="content active">
+    <h2>🧮 오징어불고기 마진율 계산기</h2>
+    <label for="price">100g당 판매가 (원)</label>
+    <input id="price" type="number" value="2400" />
+    <div class="btn-group">
+      <button onclick="setPortion(1)">한판 (1)</button>
+      <button onclick="setPortion(0.5)">반판 (1/2)</button>
+      <button onclick="setPortion(0.25)">1/4판</button>
+      <button onclick="setPortion(0.75)">3/4판</button>
+    </div>
+    <div class="toggle-wrap">
+      <input type="checkbox" id="editToggle" />
+      <label for="editToggle">재료량 직접 수정</label>
+    </div>
+    <h3>재료량 (선택된 판 기준, kg)</h3>
+    <label>흑돈: <input type="number" id="meat" value="15" disabled /></label><br/>
+    <label>오징어: <input type="number" id="squid" value="10" disabled /></label><br/>
+    <label>7소스: <input type="number" id="sauce7" value="5" disabled /></label><br/>
+    <label>FBI소스: <input type="number" id="sauceFBI" value="5" disabled /></label><br/>
+    <label>마늘: <input type="number" id="garlic" value="4" disabled /></label><br/>
+    <label>슬라이스 대파: <input type="number" id="leekSlice" value="1" disabled /></label><br/>
+    <label>하프 대파: <input type="number" id="leekHalf" value="4" disabled /></label>
+    <div class="result" id="results"></div>
+  </div>
+
+  <div id="calendar" class="content">
+    <h2>📅 매출 달력</h2>
+    <label for="calendarDate">날짜 선택:</label>
+    <input type="date" id="calendarDate">
+    <label for="calendarSales">매출 입력 (원):</label>
+    <input type="number" id="calendarSales">
+    <button onclick="saveCalendarSales()">저장</button>
+    <h3 id="monthTitle"></h3>
+    <div class="calendar" id="calendarGrid"></div>
+  </div>
+
+  <script>
+    function showPage(id) {
+      document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    const portionInput = {
+      meat: document.getElementById('meat'),
+      squid: document.getElementById('squid'),
+      sauce7: document.getElementById('sauce7'),
+      sauceFBI: document.getElementById('sauceFBI'),
+      garlic: document.getElementById('garlic'),
+      leekSlice: document.getElementById('leekSlice'),
+      leekHalf: document.getElementById('leekHalf'),
+    };
+
+    const baseValues = {
+      meat: 15, squid: 10, sauce7: 5, sauceFBI: 5,
+      garlic: 4, leekSlice: 1, leekHalf: 4,
+    };
+
+    const resultDiv = document.getElementById('results');
+    const editToggle = document.getElementById('editToggle');
+    const costPerKg = 6173;
+    const feeRate = 0.3;
+    const priceInput = document.getElementById('price');
+
+    function setPortion(ratio) {
+      if (!editToggle.checked) {
+        for (let key in baseValues) {
+          portionInput[key].value = (baseValues[key] * ratio).toFixed(2);
+        }
+      }
+      calculate();
+    }
+
+    function calculate() {
+      const totalWeight = Object.values(portionInput).reduce((sum, input) => sum + parseFloat(input.value || 0), 0);
+      const pricePer100g = parseFloat(priceInput.value || 0);
+      const totalCost = totalWeight * costPerKg;
+      const totalRevenue = totalWeight * (pricePer100g * 10);
+      const netRevenue = totalRevenue * (1 - feeRate);
+      const profit = netRevenue - totalCost;
+      const marginRate = ((profit / netRevenue) * 100).toFixed(1);
+      resultDiv.innerHTML = `
+        <div>총 중량: <strong>${totalWeight.toFixed(2)} kg</strong></div>
+        <div>총 원가: <strong>${totalCost.toLocaleString()} 원</strong></div>
+        <div>예상 매출: <strong>${totalRevenue.toLocaleString()} 원</strong></div>
+        <div>실매출 (수수료 차감 후): <strong>${netRevenue.toLocaleString()} 원</strong></div>
+        <div>마진: <strong>${profit.toLocaleString()} 원</strong></div>
+        <div>마진율: <strong>${marginRate}%</strong></div>
+      `;
+    }
+
+    editToggle.addEventListener('change', () => {
+      const isEditable = editToggle.checked;
+      for (let key in portionInput) {
+        portionInput[key].disabled = !isEditable;
+      }
+      if (!isEditable) setPortion(1);
+    });
+
+    Object.values(portionInput).forEach(input => input.addEventListener('input', calculate));
+    priceInput.addEventListener('input', calculate);
+    setPortion(1);
+
+    // 캘린더
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calendarDate = document.getElementById('calendarDate');
+    const calendarSales = document.getElementById('calendarSales');
+    const monthTitle = document.getElementById('monthTitle');
+
+    function saveCalendarSales() {
+      const date = calendarDate.value;
+      const sales = Number(calendarSales.value);
+      if (!date || !sales) return alert("날짜와 매출을 입력하세요.");
+      const data = JSON.parse(localStorage.getItem('calendar-sales') || '{}');
+      data[date] = sales;
+      localStorage.setItem('calendar-sales', JSON.stringify(data));
+      loadCalendar();
+    }
+
+    function loadCalendar() {
+      const data = JSON.parse(localStorage.getItem('calendar-sales') || '{}');
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+
+      calendarGrid.innerHTML = '';
+      monthTitle.innerText = `${year}년 ${month + 1}월`;
+
+      for (let i = 0; i < firstDay; i++) {
+        calendarGrid.innerHTML += '<div></div>';
+      }
+
+      for (let d = 1; d <= lastDate; d++) {
+        const dateStr = `${year}-${(month+1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+        const sales = data[dateStr] || '';
+        calendarGrid.innerHTML += `
+          <div class="day">
+            <span>${d}</span>
+            ${sales ? `<div class='sales-record'>₩${sales.toLocaleString()}</div>` : ''}
+          </div>
+        `;
+      }
+    }
+
+    loadCalendar();
+  </script>
+</body>
+</html>
